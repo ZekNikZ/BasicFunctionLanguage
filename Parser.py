@@ -2,19 +2,22 @@ import itertools
 
 
 class Parser(object):
-    def __init__(self, ml_asm):
+    def __init__(self, ml_asm, debug):
         self.ml = ml_asm
         self.vars = {}
         self.funcs = {}
         self.pfuncs = {}
+        self.debug = debug
 
     def run(self):
-        print('[PARSER] Starting parsing.\n')
+        if self.debug:
+            print('[PARSER] Starting parsing.\n')
         result = []
         dcount = 0
         for line in self.ml:
-            print('[PARSER] Line ' + str(dcount) + ':')
-            output = Parser.evaluate(line, cvars=self.vars, funcs=self.funcs, pfuncs=self.pfuncs)
+            if self.debug:
+                print('[PARSER] Line ' + str(dcount) + ':')
+            output = Parser.evaluate(line, cvars=self.vars, funcs=self.funcs, pfuncs=self.pfuncs, debug=self.debug)
             if type(output) is dict:
                 if 'result' in output:
                     result.append(output['result'])
@@ -29,25 +32,32 @@ class Parser(object):
             else:
                 result.append(output)
             dcount += 1
-            print()
-        print('[PARSER] Done parsing.\n\n')
+            if self.debug:
+                print()
+        if self.debug:
+            print('[PARSER] Done parsing.\n\n')
         return result
 
     @staticmethod
-    def evaluate(_code, svars={}, cvars={}, funcs={}, pfuncs={}):
+    def evaluate(_code, svars={}, cvars={}, funcs={}, pfuncs={}, debug=False):
         code = _code[:]
         if code[0][0] == 'keyword':
             if len(code) == 1:
-                print("[PARSER] Parsed command 'retrieve_var': ", end='')
+                if debug:
+                    print("[PARSER] Parsed command 'retrieve_var': ", end='')
                 if code[0][1] in svars:
-                    print('svar ' + code[0][1] + ' -> ' + str(svars[code[0][1]]))
+                    if debug:
+                        print('svar ' + code[0][1] + ' -> ' + str(svars[code[0][1]]))
                     return svars[code[0][1]]
                 else:
-                    print('cvar ' + code[0][1] + ' -> ' + str(cvars[code[0][1]]))
+                    if debug:
+                        print('cvar ' + code[0][1] + ' -> ' + str(cvars[code[0][1]]))
                     return cvars[code[0][1]]
             elif code[1][0] == 'assignment':
-                result = Parser.peval(Parser.evaluate(code[2:], svars=svars, cvars=cvars, funcs=funcs, pfuncs=pfuncs))
-                print("[PARSER] Parsed command 'assign_var': cvar " + code[0][1] + ' := ' + str(result))
+                result = Parser.peval(
+                    Parser.evaluate(code[2:], svars=svars, cvars=cvars, funcs=funcs, pfuncs=pfuncs, debug=debug))
+                if debug:
+                    print("[PARSER] Parsed command 'assign_var': cvar " + code[0][1] + ' := ' + str(result))
                 cvars[code[0][1]] = result
                 return {'result': result, 'vars': cvars}
             elif code[1][0] == 'open_group':
@@ -63,13 +73,15 @@ class Parser(object):
                         if len(argument) != 1 or argument[0][0] != 'keyword':
                             raise NameError
                     if code[index + 2][0] != 'open_assignment_group':
-                        print("[PARSER] Parsed command 'assign_func': func " + code[0][
-                            1] + ' := ' + Parser.format_tokens(code[index + 2:]))
+                        if debug:
+                            print("[PARSER] Parsed command 'assign_func': func " + code[0][
+                                1] + ' := ' + Parser.format_tokens(code[index + 2:]))
                         funcs[code[0][1]] = Parser.Function(code[index + 2:], *[x[0][1] for x in arguments])
                         return {'funcs': funcs}
                     else:
-                        print("[PARSER] Parsed command 'assign_func_p': pfunc " + code[0][
-                            1] + ' := ' + Parser.format_tokens(code[index + 2:]))
+                        if debug:
+                            print("[PARSER] Parsed command 'assign_func_p': pfunc " + code[0][
+                                1] + ' := ' + Parser.format_tokens(code[index + 2:]))
                         pfuncs[code[0][1]] = Parser.PiecewiseFunction(code[index + 2:],
                                                                       *[x[0][1] for x in arguments])
                         return {'pfuncs': pfuncs}
@@ -79,7 +91,8 @@ class Parser(object):
                         #     elif code[0][1] in pfuncs:
                         #         return pfuncs[code[0][1]].run(svars, cvars, funcs, pfuncs, *arguments)
                         #     raise NameError
-        print("[PARSER] Evaluating basic string: '" + Parser.format_tokens(code)[:-1] + "'")
+        if debug:
+            print("[PARSER] Evaluating basic string: '" + Parser.format_tokens(code)[:-1] + "'")
         for i in range(len(code)):
             if code[i] is None:
                 continue
@@ -91,17 +104,23 @@ class Parser(object):
                         code[i] = ['numeric', cvars[code[i][1]]]
                 else:
                     index = -1
+                    open_groups = 0
                     for j in range(i, len(code)):
-                        if code[j][0] == 'close_group':
-                            index = j
-                            break
+                        if code[j][0] == 'open_group':
+                            open_groups += 1
+                        elif code[j][0] == 'close_group':
+                            if open_groups > 1:
+                                open_groups -= 1
+                            else:
+                                index = j
+                                break
                     arguments = [list(x[1]) for x in
                                  itertools.groupby(code[i + 2:index], lambda x: x[0] == 'keyword_separator') if
                                  not x[0]]
                     if code[i][1] in funcs:
-                        output = funcs[code[i][1]].run(svars, cvars, funcs, pfuncs, *arguments)
+                        output = funcs[code[i][1]].run(svars, cvars, funcs, pfuncs, debug, *arguments)
                     elif code[i][1] in pfuncs:
-                        output = pfuncs[code[i][1]].run(svars, cvars, funcs, pfuncs, *arguments)
+                        output = pfuncs[code[i][1]].run(svars, cvars, funcs, pfuncs, debug, *arguments)
                     else:
                         raise NameError
                     code[i] = ['numeric', output]
@@ -150,12 +169,12 @@ class Parser(object):
             self.body = body
             self.argnames = args
 
-        def run(self, _svars_ps, _cvars, _funcs, _pfuncs, *args):
+        def run(self, _svars_ps, _cvars, _funcs, _pfuncs, debug, *args):
             _svars = {}
             for i in range(len(args)):
                 _svars[self.argnames[i]] = Parser.evaluate(args[i], svars=_svars_ps, cvars=_cvars, funcs=_funcs,
-                                                           pfuncs=_pfuncs)
-            return Parser.evaluate(self.body, cvars=_cvars, svars=_svars, funcs=_funcs, pfuncs=_pfuncs)
+                                                           pfuncs=_pfuncs, debug=debug)
+            return Parser.evaluate(self.body, cvars=_cvars, svars=_svars, funcs=_funcs, pfuncs=_pfuncs, debug=debug)
 
     class PiecewiseFunction(object):
 
@@ -171,11 +190,13 @@ class Parser(object):
                 [list(x[1]) for x in itertools.groupby(piece, lambda x: x[0] == 'expression_separator') if not x[0]][1]
                 for piece in pieces]
 
-        def run(self, _svars_ps, _cvars, _funcs, _pfuncs, *args):
+        def run(self, _svars_ps, _cvars, _funcs, _pfuncs, debug, *args):
             _svars = {}
             for i in range(len(args)):
                 _svars[self.argnames[i]] = Parser.evaluate(args[i], svars=_svars_ps, cvars=_cvars, funcs=_funcs,
-                                                           pfuncs=_pfuncs)
+                                                           pfuncs=_pfuncs, debug=debug)
             for j in range(len(self.conditions)):
-                if Parser.evaluate(self.conditions[j], cvars=_cvars, svars=_svars, funcs=_funcs, pfuncs=_pfuncs):
-                    return Parser.evaluate(self.bodies[j], cvars=_cvars, svars=_svars, funcs=_funcs, pfuncs=_pfuncs)
+                if Parser.evaluate(self.conditions[j], cvars=_cvars, svars=_svars, funcs=_funcs, pfuncs=_pfuncs,
+                                   debug=debug):
+                    return Parser.evaluate(self.bodies[j], cvars=_cvars, svars=_svars, funcs=_funcs, pfuncs=_pfuncs,
+                                           debug=debug)

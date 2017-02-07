@@ -28,26 +28,34 @@ tokens_low_priority = {
 
 
 class Lexer(object):
-    def __init__(self, code):
-        self.raw_code = code
-        self.lines = code.split('\n')
+    def __init__(self, code, debug=False):
+        if code.startswith('$debugmode'):
+            self.raw_code = code[len('$debugmode'):]
+        else:
+            self.raw_code = code
+        self.lines = self.raw_code.split('\n')
         self.statements = []
+        self.debug = debug
 
     def run(self):
-        print('[LEXER] Starting lexing.\n')
+        if self.debug:
+            print('[LEXER] Starting lexing.\n')
         dcount = 0
         for line in self.lines:
-            print('[LEXER] Line ' + str(dcount) + ':')
-            tokens = self.tokenize(line)
+            if self.debug:
+                print('[LEXER] Line ' + str(dcount) + ':')
+            tokens = self.tokenize(line, self.debug)
             if tokens:
                 self.statements.append(tokens)
             dcount += 1
-            print()
-        print('[LEXER] Done lexing.\n\n')
+            if self.debug:
+                print()
+        if self.debug:
+            print('[LEXER] Done lexing.\n\n')
         return self.statements
 
     @staticmethod
-    def tokenize(statement):
+    def tokenize(statement, debug=False):
         string = statement
         token_list = []
         assigned = False
@@ -68,7 +76,8 @@ class Lexer(object):
                         raise KeyError
                     assigned = True
                 token_list.append([token, match.group()])
-                print("[LEXER] Found token '" + token + "': " + "'" + match.group() + "'")
+                if debug:
+                    print("[LEXER] Found token '" + token + "': " + "'" + match.group() + "'")
                 string = string[match.end():]
                 done = True
                 break
@@ -78,7 +87,8 @@ class Lexer(object):
                     continue
                 # print(match.group())
                 token_list.append([token, match.group()])
-                print("[LEXER] Found token '" + token + "': " + "'" + match.group() + "'")
+                if debug:
+                    print("[LEXER] Found token '" + token + "': " + "'" + match.group() + "'")
                 string = string[match.end():]
                 done = True
                 break

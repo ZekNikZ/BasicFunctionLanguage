@@ -1,3 +1,5 @@
+$debugmode
+
 # Input
 a := 0
 b := 2
@@ -6,7 +8,10 @@ f(x) := x ^ 3
 
 # Functions
 w := ( b - a ) / n
-R(z) := {f(a + z * w) + R(z - 1) : z > 0 ; 0 : z = 0}
+R(z, c) := {f(a + (z - c) * w) + R(z - 1, c) : z > 0 ; 0 : z = 0}
 
 # Output
-w * R(n)
+w * R(n, 1) # Left
+w * R(n, 1/2) # Mid
+w * R(n, 0) # Right
+w * (R(n, 0) + f(a) / 2 - f(b) / 2) # Trapezoid
