@@ -1,4 +1,4 @@
-$debugmode
+$filteroutput
 
 # Input
 a := 0
@@ -11,7 +11,7 @@ w := ( b - a ) / n
 R(z, c) := {f(a + (z - c) * w) + R(z - 1, c) : z > 0 ; 0 : z = 0}
 
 # Output
-w * R(n, 1) # Left
-w * R(n, 1/2) # Mid
-w * R(n, 0) # Right
-w * (R(n, 0) + f(a) / 2 - f(b) / 2) # Trapezoid
+w * R(n, 1)                          # Left
+w * R(n, 1/2)                        # Mid
+w * R(n, 0)                          # Right
+w * (R(n, 0) + f(a) / 2 - f(b) / 2)  # Trapezoid

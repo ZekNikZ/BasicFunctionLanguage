@@ -29,10 +29,7 @@ tokens_low_priority = {
 
 class Lexer(object):
     def __init__(self, code, debug=False):
-        if code.startswith('$debugmode'):
-            self.raw_code = code[len('$debugmode'):]
-        else:
-            self.raw_code = code
+        self.raw_code = code
         self.lines = self.raw_code.split('\n')
         self.statements = []
         self.debug = debug
